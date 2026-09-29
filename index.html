@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MineFix - Minecraft Server</title>
+    <style>
+        :root {
+            --bg-color: #1e1e24;
+            --card-bg: #2a2a35;
+            --primary: #5c85d6;
+            --success: #47d147;
+            --danger: #ff4d4d;
+            --text: #ffffff;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text); margin: 0; padding: 0; }
+        nav { background-color: #111116; padding: 15px; display: flex; justify-content: center; gap: 20px; }
+        nav a { color: var(--text); text-decoration: none; font-weight: bold; cursor: pointer; }
+        nav a:hover { color: var(--primary); }
+        .container { max-width: 800px; margin: 40px auto; padding: 20px; background-color: var(--card-bg); border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .page { display: none; }
+        .active { display: block; }
+        h1, h2 { color: var(--primary); }
+        input, select, button { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #444; background: #333; color: #fff; box-sizing: border-box; }
+        button { background-color: var(--primary); border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #4a73c5; }
+        .btn-danger { background-color: var(--danger); }
+        .btn-danger:hover { background-color: #e60000; }
+        .item-card, .ticket-card { border: 1px solid #444; padding: 15px; margin: 15px 0; border-radius: 6px; background: #222; position: relative; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .badge { display: inline-block; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-pending { background: #ffaa00; color: #000; }
+        .badge-approved { background: var(--success); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a onclick="showPage('home')">Home & Whitelist</a>
+    <a onclick="showPage('shop')">Winkel</a>
+    <a onclick="showPage('admin')">Admin Paneel</a>
+</nav>
+
+<div class="container">
+    <!-- HOME & WHITELIST PAGE -->
+    <div id="home" class="page active">
+        <h1>Welkom bij MineFix</h1>
+        <p>Voer je Minecraft-gebruikersnaam in om toegang te vragen tot de server.</p>
+        <form id="whitelistForm">
+            <input type="text" id="mcUsername" placeholder="Minecraft Gebruikersnaam" required>
+            <button type="submit">Whitelist Aanvragen</button>
+        </form>
+        <div id="whitelistStatus"></div>
+    </div>
+
+    <!-- SHOP PAGE -->
+    <div id="shop" class="page">
+        <h2>Server Winkel</h2>
+        <p>Steun de server met handige ranks en items.</p>
+        <div id="shopItems" class="grid">
+            <!-- Items worden hier geladen via JavaScript -->
+        </div>
+    </div>
+
+    <!-- ADMIN PAGE -->
+    <div id="admin" class="page">
+        <h2>Admin Systeem</h2>
+        <div id="adminLogin">
+            <p>Log in om tickets en de winkel te beheren.</p>
+            <input type="password" id="adminPassword" placeholder="Admin Wachtwoord">
+            <button onclick="loginAdmin()">Inloggen</button>
+        </div>
+        
+        <div id="adminDashboard" style="display: none;">
+            <button class="btn-danger" onclick="logoutAdmin()" style="width: auto; float: right;">Uitloggen</button>
+            <h3>Whitelist Tickets</h3>
+            <div id="adminTickets"></div>
+
+            <h3>Winkel Beheer</h3>
+            <form id="addItemForm">
+                <input type="text" id="itemName" placeholder="Item Naam" required>
+                <input type="text" id="itemPrice" placeholder="Prijs (bijv. €5.00)" required>
+                <button type="submit">Item Toevoegen aan Shop</button>
+            </form>
+            <div id="adminShopItems"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // PAGE ROUTING
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        if(pageId === 'shop' || pageId === 'admin') renderShop();
+        if(pageId === 'admin' && checkLoginStatus()) renderTickets();
+    }
+
+    // LOCAL STORAGE DATABASE
+    let db = {
+        tickets: JSON.parse(localStorage.getItem('mf_tickets')) || [],
+        shopItems: JSON.parse(localStorage.getItem('mf_shop')) || [
+            { id: 1, name: "VIP Rank", price: "€5.00" },
+            { id: 2, name: "10x Diamond Kit", price: "€2.50" }
+        ]
+    };
+
+    function saveDB() {
+        localStorage.setItem('mf_tickets', JSON.stringify(db.tickets));
+        localStorage.setItem('mf_shop', JSON.stringify(db.shopItems));
+    }
+
+    // WHITELIST SYSTEM
+    document.getElementById('whitelistForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('mcUsername').value;
+        db.tickets.push({ id: Date.now(), username: username, status: 'In behandeling' });
+        saveDB();
+        document.getElementById('mcUsername').value = '';
+        document.getElementById('whitelistStatus').innerHTML = `<p style="color:var(--success)">Aanvraag voor ${username} ingediend!</p>`;
+    });
+
+    // SHOP SYSTEM
+    function renderShop() {
+        const shopDiv = document.getElementById('shopItems');
+        const adminShopDiv = document.getElementById('adminShopItems');
+        shopDiv.innerHTML = '';
+        adminShopDiv.innerHTML = '';
+
+        db.shopItems.forEach(item => {
+            shopDiv.innerHTML += `
+                <div class="item-card">
+                    <h3>${item.name}</h3>
+                    <p>${item.price}</p>
+                    <button onclick="alert('Koppeling met winkel activeert hier.')">Koop Nu</button>
+                </div>`;
+            adminShopDiv.innerHTML += `
+                <div class="item-card">
+                    <span><strong>${item.name}</strong> - ${item.price}</span>
+                    <button class="btn-danger" onclick="deleteShopItem(${item.id})" style="width:auto; padding:5px 10px; position:absolute; right:15px; top:12px;">Verwijder</button>
+                </div>`;
+        });
+    }
+
+    document.getElementById('addItemForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const name = document.getElementById('itemName').value;
+        const price = document.getElementById('itemPrice').value;
+        db.shopItems.push({ id: Date.now(), name: name, price: price });
+        saveDB();
+        renderShop();
+        document.getElementById('itemName').value = '';
+        document.getElementById('itemPrice').value = '';
+    });
+
+    function deleteShopItem(id) {
+        db.shopItems = db.shopItems.filter(item => item.id !== id);
+        saveDB();
+        renderShop();
+    }
+
+    // ADMIN AUTHENTICATION
+    const ADMIN_PASS = "MinefixAdmin2026"; 
+
+    function loginAdmin() {
+        const pass = document.getElementById('adminPassword').value;
+        if(pass === ADMIN_PASS) {
+            sessionStorage.setItem('isAdmin', 'true');
+            document.getElementById('adminLogin').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            renderTickets();
+            renderShop();
+        } else {
+            alert('Fout wachtwoord!');
+        }
+    }
+
+    function checkLoginStatus() {
+        if(sessionStorage.getItem('isAdmin') === 'true') {
+            document.getElementById('adminLogin').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            return true;
+        }
+        return false;
+    }
+
+    function logoutAdmin() {
+        sessionStorage.removeItem('isAdmin');
+        document.getElementById('adminLogin').style.display = 'block';
+        document.getElementById('adminDashboard').style.display = 'none';
+    }
+
+    // ADMIN TICKETS
+    function renderTickets() {
+        const ticketsDiv = document.getElementById('adminTickets');
+        ticketsDiv.innerHTML = db.tickets.length === 0 ? '<p>Geen openstaande tickets.</p>' : '';
+
+        db.tickets.forEach(ticket => {
+            const badgeClass = ticket.status === 'Goedgekeurd' ? 'badge-approved' : 'badge-pending';
+            ticketsDiv.innerHTML += `
+                <div class="ticket-card">
+                    <p><strong>Speler:</strong> ${ticket.username}</p>
+                    <p><strong>Status:</strong> <span class="badge ${badgeClass}">${ticket.status}</span></p>
+                    ${ticket.status === 'In behandeling' ? `
+                        <button onclick="updateTicket(${ticket.id}, 'Goedgekeurd')" style="width:auto; background:var(--success); margin-right:10px;">Goedkeuren</button>
+                        <button class="btn-danger" onclick="updateTicket(${ticket.id}, 'Afwijzen')" style="width:auto;">Afwijzen</button>
+                    ` : ''}
+                </div>`;
+        });
+    }
+
+    function updateTicket(id, newStatus) {
+        const ticket = db.tickets.find(t => t.id === id);
+        if(ticket) ticket.status = newStatus;
+        saveDB();
+        renderTickets();
+    }
+
+    checkLoginStatus();
+</script>
+</body>
+</html>
